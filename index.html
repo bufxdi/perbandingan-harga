@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<title>Perbandingan Harga</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f3f3f3">
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 15px;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    background: #f3f3f3;
+    color: #222;
+}
+
+h1 {
+    text-align: center;
+    margin: 5px 0 15px;
+    font-size: 24px;
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 850px;
+}
+
+th,
+td {
+    border: 1px solid #ccc;
+    padding: 7px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+th {
+    background: #e8e8e8;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+th.no-sort {
+    cursor: default;
+}
+
+.arrow {
+    font-size: 15px;
+    margin-left: 3px;
+}
+
+td:first-child {
+    width: 45px;
+}
+
+.photo-cell {
+    width: 100px;
+}
+
+.photo-preview {
+    width: 75px;
+    height: 75px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    display: block;
+    margin: auto;
+}
+
+.photo-button {
+    margin-top: 5px;
+    font-size: 12px;
+    padding: 5px 7px;
+    cursor: pointer;
+}
+
+.photo-input {
+    display: none;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 7px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.number-input {
+    text-align: right;
+}
+
+select {
+    width: 100%;
+    padding: 7px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    background: white;
+    font-size: 14px;
+}
+
+.harga-satuan {
+    white-space: nowrap;
+    font-weight: bold;
+}
+
+.cheapest {
+    background: #c8f7c5 !important;
+}
+
+.button-area {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.clear-all {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    background: #d9534f;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.clear-all:active {
+    transform: scale(0.97);
+}
+
+.status {
+    text-align: center;
+    font-size: 12px;
+    color: #777;
+    margin-top: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Perbandingan Harga</h1>
+
+<div class="table-container">
+<table>
+    <thead>
+        <tr>
+            <th class="no-sort">No.</th>
+            <th class="no-sort">Foto</th>
+
+            <th onclick="sortTable('nama')">
+                Nama / Merk
+                <span id="arrow-nama" class="arrow">↕</span>
+            </th>
+
+            <th onclick="sortTable('harga')">
+                Harga (Rp)
+                <span id="arrow-harga" class="arrow">↕</span>
+            </th>
+
+            <th onclick="sortTable('berat')">
+                Berat / Volume
+                <span id="arrow-berat" class="arrow">↕</span>
+            </th>
+
+            <th onclick="sortTable('satuan')">
+                Satuan
+                <span id="arrow-satuan" class="arrow">↕</span>
+            </th>
+
+            <th onclick="sortTable('hargaSatuan')">
+                Harga / Satuan
+                <span id="arrow-hargaSatuan" class="arrow">↕</span>
+            </th>
+        </tr>
+    </thead>
+
+    <tbody id="tableBody"></tbody>
+</table>
+</div>
+
+<div class="button-area">
+    <button class="clear-all" onclick="clearAll()">
+        Hapus Semua Data
+    </button>
+</div>
+
+<div class="status" id="status">
+    Data tersimpan di perangkat
+</div>
+
+
+<script>
+
+/* =========================================================
+   DATA
+========================================================= */
+
+const STORAGE_KEY = "perbandinganHargaData_v3";
+
+let data = createEmptyData();
+
+let sortState = {
+    column: null,
+    direction: null
+};
+
+
+/* =========================================================
+   BUAT DATA AWAL
+========================================================= */
+
+function createEmptyData() {
+
+    const arr = [];
+
+    for (let i = 0; i < 10; i++) {
+
+        arr.push({
+            nama: "",
+            harga: "",
+            berat: "",
+            satuan: "gram",
+            foto: null,
+            originalIndex: i
+        });
+
+    }
+
+    return arr;
+}
+
+
+/* =========================================================
+   LOAD DATA
+========================================================= */
+
+function loadData() {
+
+    try {
+
+        const saved = localStorage.getItem(STORAGE_KEY);
+
+        if (!saved) {
+            return;
+        }
+
+        const parsed = JSON.parse(saved);
+
+        if (!Array.isArray(parsed)) {
+            return;
+        }
+
+        data = parsed;
+
+        data.forEach((item, index) => {
+
+            if (typeof item.originalIndex !== "number") {
+                item.originalIndex = index;
+            }
+
+            if (!item.satuan) {
+                item.satuan = "gram";
+            }
+
+        });
+
+    } catch (error) {
+
+        console.error("Gagal membaca data:", error);
+
+        data = createEmptyData();
+    }
+}
+
+
+/* =========================================================
+   SAVE DATA
+========================================================= */
+
+function saveData() {
+
+    try {
+
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(data)
+        );
+
+        document.getElementById("status").textContent =
+            "Data tersimpan di perangkat";
+
+    } catch (error) {
+
+        console.error("Gagal menyimpan:", error);
+
+        document.getElementById("status").textContent =
+            "Gagal menyimpan data";
+    }
+}
+
+
+/* =========================================================
+   PARSE ANGKA INDONESIA
+========================================================= */
+
+function parseAngka(value) {
+
+    if (value === null || value === undefined) {
+        return NaN;
+    }
+
+    let str = String(value).trim();
+
+    if (str === "") {
+        return NaN;
+    }
+
+    /*
+       Format Indonesia:
+
+       50.000
+       1.250.000
+       1.250,5
+    */
+
+    str = str.replace(/\./g, "");
+    str = str.replace(",", ".");
+
+    const number = Number(str);
+
+    return number;
+}
+
+
+/* =========================================================
+   FORMAT ANGKA INDONESIA
+========================================================= */
+
+function formatAngkaIndonesia(value) {
+
+    const number = parseAngka(value);
+
+    if (isNaN(number)) {
+        return "";
+    }
+
+    return new Intl.NumberFormat("id-ID", {
+        maximumFractionDigits: 3
+    }).format(number);
+}
+
+
+/* =========================================================
+   FORMAT INPUT ANGKA
+========================================================= */
+
+function formatInputAngka(input, index, field) {
+
+    const oldValue = input.value;
+
+    const cursorPosition = input.selectionStart;
+
+    const digitsBeforeCursor =
+        oldValue
+        .slice(0, cursorPosition)
+        .replace(/[^\d]/g, "")
+        .length;
+
+    let raw = oldValue
+        .replace(/[^\d,]/g, "");
+
+    /*
+       Hanya boleh satu koma desimal
+    */
+
+    const firstComma = raw.indexOf(",");
+
+    if (firstComma !== -1) {
+
+        raw =
+            raw.slice(0, firstComma + 1) +
+            raw.slice(firstComma + 1)
+                .replace(/,/g, "");
+    }
+
+    if (raw === "") {
+
+        data[index][field] = "";
+
+        updateHargaSatuan(index);
+        saveData();
+
+        return;
+    }
+
+    /*
+       Simpan sebagai NUMBER.
+       Ini penting agar angka desimal tidak
+       bermasalah ketika dibaca kembali.
+    */
+
+    const numericValue = parseAngka(raw);
+
+    if (isNaN(numericValue)) {
+        return;
+    }
+
+    data[index][field] = numericValue;
+
+    const formatted =
+        new Intl.NumberFormat("id-ID", {
+            maximumFractionDigits: 3
+        }).format(numericValue);
+
+    input.value = formatted;
+
+    /*
+       Coba mempertahankan posisi cursor.
+    */
+
+    let newCursor = 0;
+    let count = 0;
+
+    for (let i = 0; i < formatted.length; i++) {
+
+        if (/\d/.test(formatted[i])) {
+            count++;
+
+            if (count >= digitsBeforeCursor) {
+                newCursor = i + 1;
+                break;
+            }
+        }
+    }
+
+    if (digitsBeforeCursor === 0) {
+        newCursor = 0;
+    }
+
+    try {
+        input.setSelectionRange(newCursor, newCursor);
+    } catch (e) {}
+
+    updateHargaSatuan(index);
+    saveData();
+}
+
+
+/* =========================================================
+   CONVERSI SATUAN
+========================================================= */
+
+function convertToBaseUnit(berat, satuan) {
+
+    const value = parseAngka(berat);
+
+    if (isNaN(value) || value <= 0) {
+        return NaN;
+    }
+
+    if (satuan === "kg") {
+        return value * 1000;
+    }
+
+    if (satuan === "liter") {
+        return value * 1000;
+    }
+
+    return value;
+}
+
+
+/* =========================================================
+   HITUNG HARGA / SATUAN
+========================================================= */
+
+function hitungHargaSatuan(item) {
+
+    const harga = parseAngka(item.harga);
+
+    const beratDasar =
+        convertToBaseUnit(
+            item.berat,
+            item.satuan
+        );
+
+    if (
+        isNaN(harga) ||
+        isNaN(beratDasar) ||
+        beratDasar <= 0
+    ) {
+        return NaN;
+    }
+
+    return harga / beratDasar;
+}
+
+
+/* =========================================================
+   FORMAT RUPIAH
+========================================================= */
+
+function formatRupiah(value) {
+
+    if (isNaN(value)) {
+        return "";
+    }
+
+    return "Rp " +
+        new Intl.NumberFormat("id-ID", {
+            maximumFractionDigits: 2
+        }).format(value);
+}
+
+
+/* =========================================================
+   UPDATE HARGA SATUAN
+========================================================= */
+
+function updateHargaSatuan(index) {
+
+    const row =
+        document.querySelector(
+            `tr[data-index="${index}"]`
+        );
+
+    if (!row) {
+        return;
+    }
+
+    const item = data[index];
+
+    const hasil =
+        hitungHargaSatuan(item);
+
+    const cell =
+        row.querySelector(".harga-satuan");
+
+    if (cell) {
+        cell.textContent =
+            isNaN(hasil)
+                ? ""
+                : formatRupiah(hasil);
+    }
+
+    highlightCheapest();
+}
+
+
+/* =========================================================
+   RENDER TABLE
+========================================================= */
+
+function renderTable() {
+
+    const tbody =
+        document.getElementById("tableBody");
+
+    tbody.innerHTML = "";
+
+    let displayData = [...data];
+
+    /*
+       Kalau sedang sorting,
+       tampilkan sesuai sorting.
+    */
+
+    if (
+        sortState.column &&
+        sortState.direction
+    ) {
+
+        displayData.sort(
+            compareItems
+        );
+    }
+
+    displayData.forEach((item) => {
+
+        const index =
+            data.indexOf(item);
+
+        const tr =
+            document.createElement("tr");
+
+        tr.dataset.index = index;
+
+        /*
+           NO
+        */
+
+        const noCell =
+            document.createElement("td");
+
+        noCell.textContent =
+            index + 1;
+
+        tr.appendChild(noCell);
+
+
+        /*
+           FOTO
+        */
+
+        const photoCell =
+            document.createElement("td");
+
+        photoCell.className =
+            "photo-cell";
+
+        if (item.foto) {
+
+            const img =
+                document.createElement("img");
+
+            img.src = item.foto;
+
+            img.className =
+                "photo-preview";
+
+            photoCell.appendChild(img);
+
+        }
+
+        const button =
+            document.createElement("button");
+
+        button.className =
+            "photo-button";
+
+        button.textContent =
+            item.foto
+                ? "Ganti Foto"
+                : "📷 Foto";
+
+        button.onclick =
+            function() {
+                fileInput.click();
+            };
+
+        const fileInput =
+            document.createElement("input");
+
+        fileInput.type = "file";
+        fileInput.accept = "image/*";
+        fileInput.capture = "camera";
+
+        fileInput.className =
+            "photo-input";
+
+        fileInput.onchange =
+            function(event) {
+
+                if (
+                    event.target.files &&
+                    event.target.files[0]
+                ) {
+
+                    kompresFoto(
+                        event.target.files[0],
+                        index
+                    );
+                }
+            };
+
+        photoCell.appendChild(button);
+        photoCell.appendChild(fileInput);
+
+        tr.appendChild(photoCell);
+
+
+        /*
+           NAMA
+        */
+
+        const namaCell =
+            document.createElement("td");
+
+        const namaInput =
+            document.createElement("input");
+
+        namaInput.type = "text";
+        namaInput.value =
+            item.nama || "";
+
+        namaInput.oninput =
+            function() {
+
+                data[index].nama =
+                    this.value;
+
+                saveData();
+            };
+
+        namaCell.appendChild(namaInput);
+
+        tr.appendChild(namaCell);
+
+
+        /*
+           HARGA
+        */
+
+        const hargaCell =
+            document.createElement("td");
+
+        const hargaInput =
+            document.createElement("input");
+
+        hargaInput.type = "text";
+        hargaInput.inputMode = "decimal";
+        hargaInput.className =
+            "number-input";
+
+        hargaInput.value =
+            item.harga === "" ||
+            item.harga === null ||
+            item.harga === undefined
+                ? ""
+                : new Intl.NumberFormat("id-ID", {
+                    maximumFractionDigits: 3
+                  }).format(
+                    Number(item.harga)
+                  );
+
+        hargaInput.oninput =
+            function() {
+
+                formatInputAngka(
+                    this,
+                    index,
+                    "harga"
+                );
+            };
+
+        hargaCell.appendChild(hargaInput);
+
+        tr.appendChild(hargaCell);
+
+
+        /*
+           BERAT
+        */
+
+        const beratCell =
+            document.createElement("td");
+
+        const beratInput =
+            document.createElement("input");
+
+        beratInput.type = "text";
+        beratInput.inputMode = "decimal";
+        beratInput.className =
+            "number-input";
+
+        beratInput.value =
+            item.berat === "" ||
+            item.berat === null ||
+            item.berat === undefined
+                ? ""
+                : new Intl.NumberFormat("id-ID", {
+                    maximumFractionDigits: 3
+                  }).format(
+                    Number(item.berat)
+                  );
+
+        beratInput.oninput =
+            function() {
+
+                formatInputAngka(
+                    this,
+                    index,
+                    "berat"
+                );
+            };
+
+        beratCell.appendChild(beratInput);
+
+        tr.appendChild(beratCell);
+
+
+        /*
+           SATUAN
+        */
+
+        const satuanCell =
+            document.createElement("td");
+
+        const select =
+            document.createElement("select");
+
+        const units = [
+            "gram",
+            "kg",
+            "ml",
+            "liter"
+        ];
+
+        units.forEach(unit => {
+
+            const option =
+                document.createElement("option");
+
+            option.value = unit;
+            option.textContent = unit;
+
+            if (item.satuan === unit) {
+                option.selected = true;
+            }
+
+            select.appendChild(option);
+        });
+
+        select.onchange =
+            function() {
+
+                data[index].satuan =
+                    this.value;
+
+                saveData();
+
+                updateHargaSatuan(index);
+            };
+
+        satuanCell.appendChild(select);
+
+        tr.appendChild(satuanCell);
+
+
+        /*
+           HARGA / SATUAN
+        */
+
+        const hargaSatuanCell =
+            document.createElement("td");
+
+        hargaSatuanCell.className =
+            "harga-satuan";
+
+        const hasil =
+            hitungHargaSatuan(item);
+
+        hargaSatuanCell.textContent =
+            isNaN(hasil)
+                ? ""
+                : formatRupiah(hasil);
+
+        tr.appendChild(hargaSatuanCell);
+
+
+        tbody.appendChild(tr);
+
+    });
+
+    updateArrows();
+
+    highlightCheapest();
+}
+
+
+/* =========================================================
+   SORT
+========================================================= */
+
+function compareItems(a, b) {
+
+    const column =
+        sortState.column;
+
+    const direction =
+        sortState.direction === "asc"
+            ? 1
+            : -1;
+
+    const aIncomplete =
+        isIncomplete(a);
+
+    const bIncomplete =
+        isIncomplete(b);
+
+    /*
+       Data tidak lengkap selalu di bawah.
+    */
+
+    if (aIncomplete && !bIncomplete) {
+        return 1;
+    }
+
+    if (!aIncomplete && bIncomplete) {
+        return -1;
+    }
+
+    if (aIncomplete && bIncomplete) {
+
+        return (
+            a.originalIndex -
+            b.originalIndex
+        );
+    }
+
+
+    let valueA;
+    let valueB;
+
+    if (column === "nama") {
+
+        valueA =
+            (a.nama || "").toLowerCase();
+
+        valueB =
+            (b.nama || "").toLowerCase();
+
+    }
+
+    else if (column === "harga") {
+
+        valueA =
+            parseAngka(a.harga);
+
+        valueB =
+            parseAngka(b.harga);
+
+    }
+
+    else if (column === "berat") {
+
+        valueA =
+            parseAngka(a.berat);
+
+        valueB =
+            parseAngka(b.berat);
+
+    }
+
+    else if (column === "satuan") {
+
+        valueA =
+            (a.satuan || "").toLowerCase();
+
+        valueB =
+            (b.satuan || "").toLowerCase();
+
+    }
+
+    else if (column === "hargaSatuan") {
+
+        valueA =
+            hitungHargaSatuan(a);
+
+        valueB =
+            hitungHargaSatuan(b);
+    }
+
+
+    if (typeof valueA === "number") {
+
+        if (isNaN(valueA)) return 1;
+        if (isNaN(valueB)) return -1;
+
+    }
+
+    if (valueA < valueB) {
+        return -1 * direction;
+    }
+
+    if (valueA > valueB) {
+        return 1 * direction;
+    }
+
+    return (
+        a.originalIndex -
+        b.originalIndex
+    );
+}
+
+
+/* =========================================================
+   CEK DATA TIDAK LENGKAP
+========================================================= */
+
+function isIncomplete(item) {
+
+    const nama =
+        (item.nama || "").trim();
+
+    const harga =
+        parseAngka(item.harga);
+
+    const berat =
+        parseAngka(item.berat);
+
+    return (
+        nama === "" ||
+        isNaN(harga) ||
+        isNaN(berat) ||
+        berat <= 0
+    );
+}
+
+
+/* =========================================================
+   KLIK SORT
+========================================================= */
+
+function sortTable(column) {
+
+    if (sortState.column !== column) {
+
+        sortState.column =
+            column;
+
+        sortState.direction =
+            "asc";
+    }
+
+    else if (
+        sortState.direction === "asc"
+    ) {
+
+        sortState.direction =
+            "desc";
+    }
+
+    else if (
+        sortState.direction === "desc"
+    ) {
+
+        /*
+           Kembali ke urutan awal
+        */
+
+        sortState.column =
+            null;
+
+        sortState.direction =
+            null;
+    }
+
+    renderTable();
+}
+
+
+/* =========================================================
+   UPDATE PANAH
+========================================================= */
+
+function updateArrows() {
+
+    const columns = [
+        "nama",
+        "harga",
+        "berat",
+        "satuan",
+        "hargaSatuan"
+    ];
+
+    columns.forEach(column => {
+
+        const arrow =
+            document.getElementById(
+                "arrow-" + column
+            );
+
+        if (!arrow) {
+            return;
+        }
+
+        if (
+            sortState.column !== column
+        ) {
+
+            arrow.textContent = "↕";
+
+        } else if (
+            sortState.direction === "asc"
+        ) {
+
+            arrow.textContent = "↑";
+
+        } else {
+
+            arrow.textContent = "↓";
+        }
+    });
+}
+
+
+/* =========================================================
+   HIGHLIGHT TERMURAH
+========================================================= */
+
+function highlightCheapest() {
+
+    document
+        .querySelectorAll(".harga-satuan")
+        .forEach(cell => {
+
+            cell.classList.remove(
+                "cheapest"
+            );
+
+        });
+
+
+    if (
+        sortState.column !==
+        "hargaSatuan" ||
+        sortState.direction !==
+        "asc"
+    ) {
+
+        return;
+    }
+
+
+    let cheapest =
+        Infinity;
+
+    data.forEach(item => {
+
+        const value =
+            hitungHargaSatuan(item);
+
+        if (
+            !isNaN(value) &&
+            value < cheapest
+        ) {
+
+            cheapest = value;
+        }
+    });
+
+
+    document
+        .querySelectorAll(
+            'tr[data-index]'
+        )
+        .forEach(row => {
+
+            const index =
+                Number(
+                    row.dataset.index
+                );
+
+            const value =
+                hitungHargaSatuan(
+                    data[index]
+                );
+
+            if (
+                !isNaN(value) &&
+                value === cheapest
+            ) {
+
+                const cell =
+                    row.querySelector(
+                        ".harga-satuan"
+                    );
+
+                if (cell) {
+
+                    cell.classList.add(
+                        "cheapest"
+                    );
+                }
+            }
+        });
+}
+
+
+/* =========================================================
+   KOMPRES FOTO
+========================================================= */
+
+function kompresFoto(file, index) {
+
+    if (!file.type.startsWith("image/")) {
+        return;
+    }
+
+    document.getElementById("status")
+        .textContent =
+        "Memproses foto...";
+
+    /*
+       Untuk sementara masih memakai
+       Base64.
+
+       Nanti pada tahap IndexedDB,
+       bagian ini akan kita ganti sehingga
+       foto disimpan sebagai Blob.
+    */
+
+    const reader =
+        new FileReader();
+
+    reader.onload =
+        function(event) {
+
+            const img =
+                new Image();
+
+            img.onload =
+                function() {
+
+                    const maxSize =
+                        700;
+
+                    let width =
+                        img.width;
+
+                    let height =
+                        img.height;
+
+
+                    if (
+                        width > maxSize ||
+                        height > maxSize
+                    ) {
+
+                        if (
+                            width > height
+                        ) {
+
+                            height =
+                                Math.round(
+                                    height *
+                                    maxSize /
+                                    width
+                                );
+
+                            width =
+                                maxSize;
+
+                        } else {
+
+                            width =
+                                Math.round(
+                                    width *
+                                    maxSize /
+                                    height
+                                );
+
+                            height =
+                                maxSize;
+                        }
+                    }
+
+
+                    const canvas =
+                        document.createElement(
+                            "canvas"
+                        );
+
+                    canvas.width =
+                        width;
+
+                    canvas.height =
+                        height;
+
+
+                    const ctx =
+                        canvas.getContext(
+                            "2d"
+                        );
+
+                    ctx.drawImage(
+                        img,
+                        0,
+                        0,
+                        width,
+                        height
+                    );
+
+
+                    canvas.toBlob(
+                        function(blob) {
+
+                            const reader2 =
+                                new FileReader();
+
+                            reader2.onload =
+                                function() {
+
+                                    data[index].foto =
+                                        reader2.result;
+
+                                    saveData();
+
+                                    renderTable();
+
+                                    document
+                                        .getElementById(
+                                            "status"
+                                        )
+                                        .textContent =
+                                        "Foto tersimpan";
+                                };
+
+                            reader2.readAsDataURL(
+                                blob
+                            );
+
+                        },
+                        "image/jpeg",
+                        0.65
+                    );
+                };
+
+
+            img.src =
+                event.target.result;
+        };
+
+
+    reader.readAsDataURL(file);
+}
+
+
+/* =========================================================
+   HAPUS SEMUA
+========================================================= */
+
+function clearAll() {
+
+    const yakin =
+        confirm(
+            "Hapus semua data dan foto?"
+        );
+
+    if (!yakin) {
+        return;
+    }
+
+    data =
+        createEmptyData();
+
+    sortState = {
+        column: null,
+        direction: null
+    };
+
+    localStorage.removeItem(
+        STORAGE_KEY
+    );
+
+    renderTable();
+
+    document.getElementById("status")
+        .textContent =
+        "Semua data telah dihapus";
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+loadData();
+
+renderTable();
+
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+            .then(() => console.log("Service Worker aktif"))
+            .catch(error => console.error("Service Worker gagal:", error));
+    });
+}
+</script>
+
+</body>
+</html>
